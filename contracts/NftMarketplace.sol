@@ -7,6 +7,8 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 error NftMarketplace__NotApprovedForMarketplace();
 error NftMarketplace__AlreadyListed(address nftAddress, uint256 tokenId);
 error NftMarketplace__NotOwner();
+error NftMarketplace__NotListed(address nftAddress, uint256 tokenId);
+error NftMarketplace__NotEnoughETH();
 contract NftMarketplace {
 
     struct Listing {
@@ -15,13 +17,23 @@ contract NftMarketplace {
     }
 
     event ItemListed(address indexed seller, address indexed nftAddress, uint256 indexed tokenId, uint256 price);
+    event ItemBought(address indexed owner, address indexed nftAddress, uint256 indexed tokenId, uint256 price);
 
     mapping(address => mapping(uint256 => Listing)) private s_listings;
+    mapping(address => uint256) private s_proceeds;
 
     modifier notListed(address nftAddress, uint256 tokenId, address owner) {
         Listing memory listing = s_listings[nftAddress][tokenId];
         if(listing.price != 0 ) {
             revert NftMarketplace__AlreadyListed(nftAddress, tokenId);
+        }
+        _;
+    }
+
+    modifier isListed(address nftAddress, uint256 tokenId) {
+        Listing memory listing = s_listings[nftAddress][tokenId];
+        if(listing.price == 0 ) {
+            revert NftMarketplace__NotListed(nftAddress, tokenId);
         }
         _;
     }
@@ -43,5 +55,17 @@ contract NftMarketplace {
         }
         s_listings[nftAddress][tokenId] = Listing(price, msg.sender);
         emit ItemListed(msg.sender, nftAddress, tokenId, price);
+    }
+
+    function buyItem(address nftAddress, uint256 tokenId) external payable isListed(nftAddress, tokenId) {
+        Listing memory listedItem = s_listings[nftAddress][tokenId];
+        if(msg.value <= listedItem.price) {
+            revert NftMarketplace__NotEnoughETH();
+        }
+        s_proceeds[listedItem.seller] += msg.value;
+        delete(s_listings[nftAddress][tokenId]);
+        
+        IERC721(nftAddress).safeTransferFrom(listedItem.seller, msg.sender, tokenId);
+        emit ItemBought(msg.sender, nftAddress, tokenId, listedItem.price);
     }
 }
