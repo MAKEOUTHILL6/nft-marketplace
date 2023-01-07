@@ -3,3 +3,4 @@ node_modules
 gas-report.txt
 artifacts
 cache
+coverage
