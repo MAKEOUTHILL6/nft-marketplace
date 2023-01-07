@@ -60,7 +60,7 @@ contract NftMarketplace {
 
     function buyItem(address nftAddress, uint256 tokenId) external payable isListed(nftAddress, tokenId) {
         Listing memory listedItem = s_listings[nftAddress][tokenId];
-        if(msg.value <= listedItem.price) {
+        if(msg.value < listedItem.price) {
             revert NftMarketplace__NotEnoughETH();
         }
         s_proceeds[listedItem.seller] += msg.value;
